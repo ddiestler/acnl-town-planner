@@ -1,0 +1,261 @@
+<html>
+<head>
+<title>Canvas tutorial</title>
+<script src="draw.js" data-main="app"></script>
+<style type="text/css">
+    canvas { 
+/*		border: 1px dotted black; */
+		background: url('img/checkerboard.png') repeat;
+	}
+	ul li .color {
+		color: white; 
+		text-shadow: black 0.1em 0.1em 0.2em; 
+		padding: 0px 2px;
+	}	
+	ul li .coords {
+		font-weight: bold;
+	}
+	ul li .offset {
+		vertical-align: super;
+		font-size: 8px;
+	}
+</style>
+</head>
+<body oncontextmenu="return false;">
+    <input type="button" id="draw" value="Re-Draw" />
+    <input type="file" id="file" />
+	<span id="info"></span>
+    <input type="button" id="action" value="Draw Mask" />
+    <input type="button" id="action2" value="Show Potential Build Spots" disabled="disabled" />
+    <br />
+	<div style="display: inline-block;">
+ 		<canvas id="map" width="300" height="300" ></canvas>
+	</div>
+	<div style="display: inline-block; vertical-align: top;">
+		<ul>
+		</ul>	
+	</div>
+    <div id="yard" style="display: none;">
+        <img id="myimage" style="width: 50px; height: 50px;" />
+    </div>
+</body>
+<script type="application/javascript">
+var $      = document.querySelector			.bind(document);
+var $all   = document.querySelectorAll		.bind(document);
+var $id    = document.getElementById		.bind(document);
+var $class = document.getElementsByClassName.bind(document);
+var $tag   = document.getElementsByTagName	.bind(document);
+
+var canvas, data, ctx;
+
+canvas = document.getElementsByTagName('canvas')[0];
+ctx = canvas.getContext('2d');
+
+
+$id('draw').addEventListener('click', draw, false);
+$id('file').addEventListener('change', onFileSelected, false);
+$id('map').addEventListener('click', canvasMouseClick, false);
+
+
+function paintSquare(x,y,hex) {
+	ctx.fillStyle = hex || "#FF00FF";
+	var s = map.unitSquare;
+	ctx.fillRect(x*s+1, y*s+1, s-1, s-1); 
+}
+function getSquare(colX,rowY) {
+	var s = map.unitSquare;
+	var x = s * colX;
+	var y = s * rowY;
+	//console.log(x,y);
+	var NE = getPixel(x+1,y+1);	
+	var NW = getPixel(x+9,y+1);
+	var SE = getPixel(x+1,y+9);
+	var SW = getPixel(x+9,y+9);
+	//console.log(NE,NW,SE,SW);
+	//console.log(NE.equals(NW) && NW.equals(SE) && SE.equals(SW), !NE.equals(SW) && NW.equals(SE), !NW.equals(SE) && NE.equals(SW));
+
+	if (NE.equals(NW) && NW.equals(SE) && SE.equals(SW)) {	
+		var c = NE.toString(16);
+		for (var prop in tiles) {
+			if (tiles[prop] == c) c = prop;
+		}
+		return c;
+	}
+	else if (!NE.equals(SW) && NW.equals(SE)) {
+		// diagonal /
+		var c1 = NE.toString(16);
+		var c2 = SW.toString(16);
+		for (var prop in tiles) {
+			if (tiles[prop] == c1) c1 = prop;
+			if (tiles[prop] == c2) c2 = prop;
+		}
+		return c1 + "/" + c2;
+	}
+	else if (!NW.equals(SE) && NE.equals(SW)) {
+		// diagonal \
+		var c1 = NW.toString(16);
+		var c2 = SE.toString(16);
+		for (var prop in tiles) {
+			if (tiles[prop] == c1) c1 = prop;
+			if (tiles[prop] == c2) c2 = prop;
+		}
+		return c2 + "\\" + c1;
+	}
+}
+var map = {};
+map.tileTypes = tiles;
+map.unitSquare = 10;
+map.width = 0;
+map.height = 0;
+map.paint = function (x,y,c) {
+	var isHexColor = /^([0-9a-fA-F]{3,8})$/.test(c);
+	if (typeof c === "undefined") paintSquare(x,y);
+	if (isHexColor) paintSquare(x,y,"#"+c);
+	if (tiles.hasOwnProperty(c)) paintSquare(x,y,"#"+tiles[c]);
+}
+	
+function canvasMouseClick(event) {
+	//console.log(event);	
+	//console.log("%o,%o",event.offsetX,event.offsetY);
+	var 
+		x = event.offsetX,
+		y = event.offsetY,
+		width = canvas.width,
+		index = 4 * (x + y * width);
+	//console.log("index: %o", index);
+	var a = ctx.getImageData(x, y, 1, 1);
+	//var color = new Color(a.data[0], a.data[1], a.data[2], a.data[3]);
+	//var p = new Pixel(x,y,color);
+	//console.log("Color: `%s` @ Pixel: `%s`", c, p);
+	var color = getPixel(x,y);
+
+
+	// tile size: 10
+	var c = Math.floor(x/map.unitSquare);
+	var r = Math.floor(y/map.unitSquare);
+	var colorStr = getSquare(c,r);
+
+	var li = document.createElement('li');
+
+	
+	var span = document.createElement('span');
+	span.classList.add('coords');
+	span.textContent = "("+c+", "+r+")";
+	li.appendChild(span);
+	
+	var span = document.createElement('span');
+	span.classList.add('offset');
+	span.textContent = x+","+y;
+	li.appendChild(span);
+	
+	var span = document.createElement('span');
+	span.classList.add('color');
+	span.style.backgroundColor = "#"+color.toString(16);
+	span.textContent = colorStr;
+	li.appendChild(span);
+		
+	$tag('ul')[0].appendChild(li);
+}
+
+var tiles = [{
+        name:'ground'  , color:'76BB4B', terrain: 1, removable: 0, buildable: 1 },{
+        name:'water'   , color:'00A2E9', terrain: 1, removable: 0, buildable: 0 },{
+        name:'sea'     , color:'99D9E9', terrain: 1, removable: 0, buildable: 0 },{
+        name:'sand'    , color:'EAE29D', terrain: 1, removable: 0, buildable: 0 },{
+        name:'rock'    , color:'A5A5A5', terrain: 1, removable: 0, buildable: 0 },{
+        name:'shrub'   , color:'BFE48B', terrain: 0, removable: 1, buildable: 1 },{
+        name:'tree1'   , color:'14833C', terrain: 0, removable: 1, buildable: 1 },{
+        name:'tree2'   , color:'408267', terrain: 0, removable: 1, buildable: 1 },{
+        name:'pwp'     , color:'F292C8', terrain: 0, removable: 1, buildable: 0 },{
+        name:'path'    , color:'C5C5C5', terrain: 0, removable: 1, buildable: 0 },{
+        name:'bridge'  , color:'6A6A6A', terrain: 0, removable: 1, buildable: 0 },{
+        name:'stump'   , color:'AE844E', terrain: 0, removable: 1, buildable: 1 },{
+        name:'npc'     , color:'7DEE9C', terrain: 0, removable: 0, buildable: 0 },{
+        name:'player'  , color:'F2BA1B', terrain: 0, removable: 0, buildable: 0 },{
+        name:'dock'    , color:'603913', terrain: 0, removable: 0, buildable: 0 },{
+        name:'ramp'    , color:'375C2E', terrain: 0, removable: 0, buildable: 0 },{
+        name:'townhall', color:'662D91', terrain: 0, removable: 0, buildable: 0 },{
+        name:'cafe'    , color:'603913', terrain: 0, removable: 0, buildable: 0 
+    }], 
+    tileMapByName = {},
+    tileMapByColor = {}
+;	
+
+// Upfront cost of O(n) to get O(1) lookup
+for (var i=0; i<tiles.length; i++) {
+    tileMapByName[tiles[i].name] = i;
+    tileMapByColor[tiles[i].color] = i;
+}
+    
+$id('action').addEventListener('click', drawMask, false);
+
+var matrix = [];
+    
+function drawMask () {
+    
+    for(var i=0; i<map.width; i++) {
+        matrix[i] = [];
+        for(var j=0; j<map.height; j++) {
+            matrix[i][j] = undefined;
+        }
+    }
+
+    for (var x = 0; x < map.width; x++) {
+        for (var y = 0; y < map.height; y++) {
+            var sqColor = getSquare(x,y);
+            var tile = tiles[tileMapByColor[sqColor]];
+            if (typeof tile === "undefined" || !tile.buildable) {
+                map.paint(x,y,'000');
+                matrix[x][y] = 0;
+            }
+            else {
+                matrix[x][y] = 1;
+            }
+        }
+    }
+    $id('action2').disabled = false;
+}
+    
+$id('action2').addEventListener('click', showBuildSpots, false);
+  
+var maskResult = [];
+function showBuildSpots() {
+    var checkSize = 5;
+    for(var i=0; i<map.width; i++) {
+    maskResult[i] = [];
+        for(var j=0; j<map.height; j++) {
+            maskResult[i][j] = 0;
+        }
+    }
+    
+    for (var x = 0; x < map.width; x++) {
+        for (var y = 0; y < map.height; y++) {
+            if (matrix[x][y] == 0) continue;
+            var b = checkMatixArea(matrix,x,y,checkSize);
+            //maskResult[x][y] = ~~b;
+        }
+    }
+
+    for (var x = 0; x < map.width; x++) {
+        for (var y = 0; y < map.height; y++) {
+            if (maskResult[x][y] == 1) {
+                map.paint(x,y);
+            }
+        }
+    }
+}
+function checkMatixArea(theMatrix, x, y, size) {
+    for (var i = x; i < x+size; i++){
+        for (var j = y; j < y+size; j++) {
+            if (matrix[i][j] == 0) return false;
+        }
+    }
+    for (var i = x; i < x+size; i++){
+        for (var j = y; j < y+size; j++) {
+            maskResult[i][j] = 1;
+        }
+    }
+    return true;
+}
+</script>
+</html>
