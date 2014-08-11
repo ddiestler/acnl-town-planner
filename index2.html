@@ -1,0 +1,135 @@
+<html>
+<head>
+<title>Canvas tutorial</title>
+<script type="text/javascript" src="deps/paper.js-0.9.18/dist/paper-full.js"></script>
+<style type="text/css">
+    canvas { 
+		border: 1px dotted black;
+		background: url('img/checkerboard.png') repeat;
+	}
+	ul li .color {
+		color: white; 
+		text-shadow: black 0.1em 0.1em 0.2em; 
+		padding: 0px 2px;
+	}	
+	ul li .coords {
+		font-weight: bold;
+	}
+	ul li .offset {
+		vertical-align: super;
+		font-size: 8px;
+	}
+</style>
+</head>
+<body oncontextmenu="return false;">
+    <input type="file" id="file" />
+	<span id="info"></span>
+    <input type="button" id="action" value="Rasterize" />
+    <br />
+	<div style="display: inline-block;">
+ 		<canvas id="map" width="1000" height="1000" ></canvas>
+	</div>
+    <div id="yard" style="display: inline-block; vertical-align:top;">
+        <img id="myimage" src="img/maps/map_b_1.png" />
+    </div>
+</body>
+<script type="application/javascript">
+var $      = document.querySelector			.bind(document);
+var $all   = document.querySelectorAll		.bind(document);
+var $id    = document.getElementById		.bind(document);
+var $class = document.getElementsByClassName.bind(document);
+var $tag   = document.getElementsByTagName	.bind(document);
+
+var canvas, data, ctx;
+
+canvas = document.getElementsByTagName('canvas')[0];
+ctx = canvas.getContext('2d');
+
+
+$id('file').addEventListener('change', onFileSelected, false);
+//$id('map').addEventListener('click', canvasMouseClick, false);
+
+function loadFileImageIntoCanvas(fileEvent, callback) {		
+	var selectedFile = event.target.files[0];
+	var reader = new FileReader();
+	
+	var img = document.getElementById("myimage");
+	img.title = selectedFile.name;
+
+	reader.onload = function(event) {
+		img.src = event.target.result;
+		//console.log(img);
+		//canvas.width = img.width;
+		//canvas.height = img.height;
+		//draw();
+		callback();
+	};
+
+	reader.readAsDataURL(selectedFile);
+
+}
+function onFileSelected(event) {
+	loadFileImageIntoCanvas(event, function () {
+		
+	});
+}
+
+$id('action').addEventListener('click', drawRaster, false);
+	
+paper.install(window);
+	
+function drawRaster() {
+	console.log("drawRaster...");
+	
+	paper.setup('map');
+	
+	var img = $id("myimage");
+	
+	// Create a raster item using the image tag with id='mona'
+	var raster = new Raster(img);
+	console.log(raster);
+	// Hide the raster:
+	raster.visible = false;
+
+	// The size of our grid cells:
+	var gridSize = 10;
+
+	// Space the cells by 120%:
+	var spacing = 1.2;
+
+	
+		// Since the example image we're using is much too large,
+		// and therefore has way too many pixels, lets downsize it to
+		// 40 pixels wide and 30 pixels high:
+		raster.size = new Size(90, 88);
+
+		for (var y = 0; y < raster.height; y++) {
+			for(var x = 0; x < raster.width; x++) {
+				// Get the color of the pixel:
+				var color = raster.getPixel(x, y);
+
+				// Create a circle shaped path:
+				//var path = new Path.Circle({
+				//	center: new Point(x, y) * gridSize,
+				//	radius: gridSize / 2 / spacing
+				//});
+				var path = new Path.Rectangle(
+					new Point(x*gridSize,y*gridSize),
+					gridSize / spacing
+				);
+				// Set the fill color of the path to the color
+				// of the pixel:
+				path.fillColor = color;
+			}
+		}
+
+	// Move the active layer to the center of the view:
+	project.activeLayer.position = view.center;
+	
+	console.log("example done.");
+	
+	view.draw();
+}
+
+</script>
+</html>
